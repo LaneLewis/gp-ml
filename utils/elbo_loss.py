@@ -49,7 +49,7 @@ def log_likelihood_loss(batch_X,decoding_manifold_means,R)->torch.tensor:
     batch_X - tensor of shape [batch_size, timesteps, observation_dims]: the batched data
     decoding_manifold_means - tensor of shape [batch_size, samples timesteps, observation_dims]: 
                               manifold mean embedding by passing the random latent samples through the decoder
-    R - tensor of shape [observation_dims,observation_dims]: the 
+    R - tensor of shape [observation_dims,observation_dims]: the covariance matrix of the observations
     returns log_likelihood_losses - tensor of shape [batch_size, samples]
     '''
     raise NotImplementedError
