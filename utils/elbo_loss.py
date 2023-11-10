@@ -1,9 +1,9 @@
 import torch
 
-def approx_elbo_loss(X_batch:torch.Tensor,encoding_function:function,decoding_function:function,samples:int=100)->torch.Tensor:
+def approx_elbo_loss(batch_X:torch.Tensor,encoding_function:function,decoding_function:function,samples:int=100)->torch.Tensor:
     '''
     computes the elbo loss for a batched dataset
-    X_batch - tensor of shape [batch_size, timesteps, observation_dims] : The batched dataset to compute the loss over
+    batch_X - tensor of shape [batch_size, timesteps, observation_dims] : The batched dataset to compute the loss over
     encoder_function - function:(X) -> mu, Sigma. 
                     This function takes data and returns the mean and covariance of a mv normal distribution.
                     X has shape [batch_size,timesteps,observation_dims]
