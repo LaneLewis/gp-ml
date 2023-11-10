@@ -20,10 +20,9 @@ def approx_elbo_loss(batch_X:torch.Tensor,encoding_function:function,decoding_fu
     encoding_mus,encoding_Sigmas = encoding_function(batch_X)
     encoding_dist_samples = sample_encoding_dist(encoding_mus,encoding_Sigmas,samples)
     decoding_manifold_means = decoding_function(encoding_dist_samples)
-
-    raise NotImplementedError
-
-    return 
+    log_likelihood_sample_losses = log_likelihood_loss(batch_X,decoding_manifold_means,R)
+    approx_individual_elbos= torch.mean(log_likelihood_sample_losses,dim=1)
+    return approx_individual_elbos
 
 def sample_encoding_dist(encoding_mus:torch.Tensor,encoding_Sigmas:torch.Tensor,samples:int)->torch.Tensor:
     '''
