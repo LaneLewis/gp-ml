@@ -117,7 +117,7 @@ class GPML_VAE():
                 param_optimizer.zero_grad()
                 #computes the loss
                 indiv_losses = approx_elbo_loss(batch_X,self.encoder_model.forward,self.decoder_model.forward,samples=approx_elbo_loss_samples)
-                batch_loss = -1*torch.sum(indiv_losses)
+                batch_loss = torch.sum(indiv_losses)
                 batch_loss.backward()
                 #steps the grad
                 encoder_optimizer.step()
