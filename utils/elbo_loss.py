@@ -1,7 +1,8 @@
 import torch
+from typing import Callable
 
-def approx_elbo_loss(batch_X:torch.Tensor,encoding_function:function,decoding_function:function,
-                     R:torch.Tensor,K:torch.tensor,samples:int=100)->torch.Tensor:
+def approx_elbo_loss(batch_X:torch.Tensor,encoding_function:Callable,decoding_function:Callable,
+                     R:torch.Tensor,Ks:torch.tensor,samples:int=100)->torch.Tensor:
     '''
     computes the elbo loss for a batched dataset
     batch_X - tensor of shape [batch_size, timesteps, observation_dims] : The batched dataset to compute the loss over
@@ -25,7 +26,7 @@ def approx_elbo_loss(batch_X:torch.Tensor,encoding_function:function,decoding_fu
     log_likelihood_sample_losses = log_likelihood_loss(batch_X,decoding_manifold_means,R)
     approx_individual_log_likelihood= torch.mean(log_likelihood_sample_losses,dim=1)
     #computes the kl divergence term
-    kl_divergence_term = kl_divergence(encoding_mus,encoding_Sigmas,K)
+    kl_divergence_term = kl_divergence(encoding_mus,encoding_Sigmas,Ks)
     #combines them together to get the approximate elbo per item in the batch
     individual_elbos = -1*approx_individual_log_likelihood + kl_divergence_term
     return individual_elbos
@@ -56,14 +57,33 @@ def log_likelihood_loss(batch_X,decoding_manifold_means,R)->torch.tensor:
 
     return 
 
-def kl_divergence(encoding_mus,encoding_Sigmas,K)->torch.Tensor:
+def kl_divergence(encoding_mus:torch.Tensor,encoding_Sigmas:torch.Tensor,K:torch.Tensor)->torch.Tensor:
     '''
     computes the kl divergence between the encoding distribution and the prior distribution across batches
-    encoding_mus - tensor of shape [batch_size, timesteps, observation_dims]
-    encoding_Sigmas - tensor of shape [batch_size, timesteps, timesteps, observation_dims]
-    K - tensor of shape [timesteps, timesteps]
+    encoding_mus - tensor of shape [batch_size, timesteps, latent_dims]
+    encoding_Sigmas - tensor of shape [batch_size, timesteps, timesteps, latent_dims]
+    K - tensor of shape [timesteps, timesteps, latent_dims]
 
     returns kl_divergences - tensor of shape [batch_size]
     '''
-    raise NotImplementedError
-    return 
+    #NOTE passes its unit test, should have more since there is some method overlap between test and this
+    batch_size = encoding_mus.shape[0]
+    timesteps = encoding_mus.shape[1]
+    latent_dims = encoding_mus.shape[2]
+
+    block_diag_K = torch.block_diag(*[K[:,:,i] for i in range(K.shape[2])])
+    #permutes in order to reshape correctly into flattened
+    batch_flat_mus = torch.permute(encoding_mus,(0,2,1)).reshape(batch_size,timesteps*latent_dims)
+    def convert_to_flat_cov(single_encoding_Sigmas):
+        '''
+        single_encoding_Sigmas - shape [timesteps,timesteps,latent_dims] : covariance matrices across latents
+        return flat_block_cov - shape [timesteps*latent_dims,timesteps*latent_dims] : 
+                                block diagonal cov matrix for covariance of flattened distribution
+        '''
+        return torch.block_diag(*map(torch.squeeze, single_encoding_Sigmas.split(1,dim=2)))
+    
+    batch_flat_covs = torch.vmap(convert_to_flat_cov)(encoding_Sigmas)
+    batched_normal_dist = torch.distributions.MultivariateNormal(batch_flat_mus,batch_flat_covs)
+    target_dist = torch.distributions.MultivariateNormal(torch.zeros(timesteps*latent_dims),block_diag_K)
+    #note that there is broacasting since batched_normal_dist and target_dist have different shapes
+    return torch.distributions.kl.kl_divergence(batched_normal_dist,target_dist)

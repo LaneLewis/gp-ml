@@ -69,6 +69,7 @@ class GPML_VAE():
         self.timesteps = timesteps
         #constructs the kernel matricies
         self.kernel_matrices = sde_kernel_matrices(timesteps,self.taus,self.signal_sds,self.noise_sds)
+        self.block_diag_kernel_matrix = torch.block_diag(*[self.kernel_matrices[kernel_matrix_index,:,:] for kernel_matrix_index in range(self.kernel_matrices.shape[0])])
         self.training_loss = []
 
     def fit(self,X_train:torch.Tensor,encoder_optimizer:object=None,decoder_optimizer:object=None,epochs=100,
