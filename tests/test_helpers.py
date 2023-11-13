@@ -1,20 +1,23 @@
 import torch
-class ParabolaDecoder():
-    def __init__(self,dims_in,alpha):
-        self.dims_in = dims_in
-        self.alpha = torch.tensor(alpha)
-    def forward_single(self,z):
-        '''takes in a two dimensional latent variable and embeds it into a 3d parabola
-        z - tensor of shape [samples, timesteps, dims_in]
-        returns X a tensor of shape [samples, timesteps, dims_in+1]
-        '''
-        extra_dim = self.alpha*torch.linalg.norm(z)**2
-        return torch.cat((z,extra_dim.unsqueeze(2)),dim=2)
-    def forward(self,Z):
-        '''takes in a two dimensional latent variable and embeds it into a 3d parabola
-        Z - tensor of shape [batch_size,samples, timesteps, dims_in]
-        returns X a tensor of shape [batch_size, samples, timesteps, dims_in+1]
-        '''
-        torch.vmap(self.forward_single)(Z)
+
+    
+class LinearEncoder():
+    def __init__(self,dim_observed,dim_latents,weights_means,weights_cov):
+        assert weights_means.shape[1] == dim_observed == weights_cov.shape[1]
+        assert weights_cov.shape[0] == dim_latents == weights_cov.shape[0]
+        self.dim_observed = dim_observed
+        self.dim_latents = dim_latents
+        self.weights_means = weights_means
+        self.weights_cov = weights_cov
+
+    def forward(self,X):
+        '''X has shape [batch_size, timesteps, observed_dims]'''
+        permuted_X = X.permute([2,0,1])
+        means = torch.tensordot(self.weights_means,permuted_X,dims=1).permute([1,2,0])
+        covs = torch.tensordot(self.weights_cov,permuted_X,dims=1)
+        batch_create_diagonal = torch.diag_embed(covs)
+        correct_diagonal = batch_create_diagonal.permute([1,2,3,0])
+        return means,correct_diagonal
+    
     def parameters(self):
-        return [self.alpha]
+        return torch.concat([self.weights_means.flatten(),self.weights_cov.flatten()])

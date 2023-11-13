@@ -9,7 +9,7 @@ def sde_kernel_matrices(times:torch.Tensor,taus:torch.Tensor,
       signal_sds - tensor of shape (latent_dims): signal_sds of the GP
       noise_sds - tensor of shape (latent_dims): noise_sds of the GP
 
-      returns kernels - tensor of shape [latent_dims,timesteps,timesteps]:
+      returns kernels - tensor of shape [timesteps,timesteps,latent_dims]:
                         which gives the kernal matrices for each latent_dim
       
    '''
@@ -23,5 +23,4 @@ def sde_kernel_matrices(times:torch.Tensor,taus:torch.Tensor,
    signal_term = (signal_sds**2)*torch.exp(exp_shared_term.unsqueeze(2)/exp_taus_term)
    noise_term = (noise_sds**2)*(torch.eye(timesteps).unsqueeze(2))
    output_matrix =  signal_term + noise_term
-   correct_shape_output = output_matrix.movedim(2,0)
-   return correct_shape_output
+   return output_matrix
