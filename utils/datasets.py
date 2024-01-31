@@ -15,7 +15,7 @@ def parabola_imbedded_dataset(samples=100,tau1=0.5,tau2=0.1,signal_sds1=0.99,sig
         parameters = {"taus":taus,"signal_sds":signal_sds,"noise_sds":noise_sds,"alpha":parabola_alpha,"R_diag":R_diag}
         return Z,X,times,parameters
     
-def parabola_imbedded_dataset1(samples=100,tau=5.0,signal_sds=0.99,noise_sds=0.01,parabola_alpha=1.0,times=torch.linspace(0.0,1.0,10),R_diag=[0.1,0.1]):
+def parabola_imbedded_dataset1(samples=100,tau=5.0,signal_sds=0.99,noise_sds=0.01,parabola_alpha=1.0,times=torch.linspace(0.0,100.0,500),R_diag=[0.1,0.1]):
     with torch.no_grad():
         taus = torch.tensor([tau])
         signal_sds = torch.tensor([signal_sds])
@@ -26,8 +26,19 @@ def parabola_imbedded_dataset1(samples=100,tau=5.0,signal_sds=0.99,noise_sds=0.0
         Z,X = sample_assumed_distribution(decoder.forward,times,R,Ks,samples)
         parameters = {"taus":taus,"signal_sds":signal_sds,"noise_sds":noise_sds,"alpha":parabola_alpha,"R_diag":R_diag}
         return Z,X,times,parameters
+    
 @torch.no_grad
-def sample_assumed_distribution(decoder_func,times,R,Ks,samples):
+def sample_assumed_distribution(decoder_func,times,R_diag,taus,samples,signal_sd = 0.99,noise_sd = 0.01):
+    #defines the variables
+    latent_dims = len(taus)
+    observed_dims = len(R_diag)
+    taus = torch.tensor(taus)
+    R_diag = torch.tensor(R_diag)
+    R = torch.diag(R_diag)
+    signal_sds = torch.tensor(latent_dims*[signal_sd])
+    noise_sds = torch.tensor(latent_dims*[noise_sd])
+
+    Ks = sde_kernel_matrices(times,taus,signal_sds,noise_sds)
     timesteps = times.shape[0]
    # Ks.permute(2,0,1)
     prior_samples_broadcast = torch.distributions.MultivariateNormal(torch.zeros(timesteps),Ks.permute(2,0,1)).sample((samples,))

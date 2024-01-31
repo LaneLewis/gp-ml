@@ -24,3 +24,20 @@ def sde_kernel_matrices(times:torch.Tensor,taus:torch.Tensor,
    noise_term = (noise_sds**2)*(torch.eye(timesteps).unsqueeze(2))
    output_matrix =  signal_term + noise_term
    return output_matrix
+
+def sde_kernel_matrices_derivatives(times:torch.Tensor,taus:torch.Tensor,
+                        signal_sds:torch.Tensor)->torch.Tensor:
+   assert taus.shape == signal_sds.shape
+   timesteps = times.shape[0]
+   data_times_square = torch.outer(torch.square(times),torch.ones(timesteps))
+   exp_shared_term = -1*(data_times_square + data_times_square.T - 2 * torch.outer(times,times))
+   exp_taus_term = 2*torch.square(taus)
+   #has shape [timesteps,timesteps,latent_dims]
+   signal_term = (signal_sds**2)*torch.exp(exp_shared_term.unsqueeze(2)/exp_taus_term)
+   chain_term = -1*exp_shared_term.unsqueeze(2)/torch.pow(taus,3)
+   return chain_term*signal_term
+
+def sde_kernel_matrices_log_taus(times:torch.Tensor,log_taus:torch.Tensor,
+                        signal_sds:torch.Tensor,noise_sds:torch.Tensor):
+   taus = torch.exp(log_taus)
+   return sde_kernel_matrices(times,taus,signal_sds,noise_sds)

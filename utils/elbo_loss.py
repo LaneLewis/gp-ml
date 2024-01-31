@@ -1,8 +1,8 @@
 import torch
 from typing import Callable
 
-def approx_elbo_loss(taus,batch_X:torch.Tensor,encoding_function:Callable,decoding_function:Callable,
-                     R:torch.Tensor,Ks:torch.tensor,samples:int=10,loss_hyper=10.0)->torch.Tensor:
+def approx_elbo_loss(taus:torch.Tensor,batch_X:torch.Tensor,encoding_function:Callable,decoding_function:Callable,
+                     R:torch.Tensor,Ks:torch.tensor,samples:int=10,loss_hyper=10.0,taus_to_encoder=False,taus_to_decoder=False)->torch.Tensor:
     '''
     computes the elbo loss for a batched dataset
     batch_X - tensor of shape [batch_size, timesteps, observation_dims] : The batched dataset to compute the loss over
@@ -19,10 +19,19 @@ def approx_elbo_loss(taus,batch_X:torch.Tensor,encoding_function:Callable,decodi
 
     returns individual_elbos - shape [batch_size]: loss for each sample of X in the batch
     '''
-    encoding_mus,encoding_Sigmas = encoding_function(batch_X,taus)
+    
+    if taus_to_encoder:
+        encoding_mus,encoding_Sigmas = encoding_function(batch_X,taus)
+    else:
+        encoding_mus,encoding_Sigmas = encoding_function(batch_X)
     #computes the ll expectation term
     encoding_dist_samples = sample_encoding_dist(encoding_mus,encoding_Sigmas,samples)
-    decoding_manifold_means = decoding_function(encoding_dist_samples)
+
+    if taus_to_decoder:
+        decoding_manifold_means = decoding_function(encoding_dist_samples,taus)
+    else:
+        decoding_manifold_means = decoding_function(encoding_dist_samples)
+
     log_likelihood_sample_losses = log_likelihood_loss(batch_X,decoding_manifold_means,R)
     approx_individual_log_likelihood= torch.mean(log_likelihood_sample_losses,dim=1)
     #computes the kl divergence term

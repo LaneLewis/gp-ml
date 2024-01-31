@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn.modules import Module
 
 class LinearEncoder():
     def __init__(self,dim_observed,dim_latents,weights_means,weights_cov):
@@ -68,6 +69,7 @@ class LSTM_Encoder_tau(nn.Module):
         self.to_mean_sd = nn.Linear(hidden_state_to_posterior_size,2*self.latent_dims)
         self.slack = slack_term
         self.device = device
+        
     def forward(self,X,taus):
         #X has shape [batch_size,timesteps,observed_dims]
         batch_size = X.shape[0]
@@ -86,6 +88,47 @@ class LSTM_Encoder_tau(nn.Module):
         dynamics_hidden_states,_ = self.initial_to_posterior_states(dummy_inputs,(dynamics_initial_cond.reshape(1,batch_size,dynamics_initial_cond.shape[1]),dummy_initial_cxs.reshape(1,batch_size,dummy_initial_cxs.shape[1])))
         mean_sds = self.to_mean_sd(dynamics_hidden_states)
         means,sds = mean_sds[:,:,:self.latent_dims],mean_sds[:,:,self.latent_dims:]
+        sds_tensor = torch.stack([torch.diag_embed(sds[batch_i,:,:].T**2 + self.slack) for batch_i in range(sds.shape[0])])
+        corr_sds = sds_tensor.permute(0,2,3,1)
+        return means,corr_sds
+
+
+class FeedforwardVAEEncoder(nn.Module):
+    #NOTE this is completely untested!
+    def __init__(self,layers_list,latent_dims,observed_dims,timesteps,device="cpu"):
+        super().__init__()
+        self.slack = 0.0001
+        self.timesteps = timesteps
+        self.latent_dims = latent_dims
+        self.observed_dims = observed_dims
+        self.flattened_input_dims = observed_dims*timesteps
+        self.flattened_output_dims = latent_dims*timesteps*2
+        self.layers = nn.ModuleList()
+        self.norm_layer = nn.BatchNorm1d(observed_dims)
+        input_size = self.flattened_input_dims
+        for size,activation in layers_list:
+            linear_layer = nn.Linear(input_size,size)
+            self.layers.append(linear_layer)
+            input_size = size
+            if activation is not None:
+                assert isinstance(activation, Module),"Each tuples should contain a size (int) and a torch.nn.modules.Module."
+                self.layers.append(activation)
+        self.layers.append(nn.Linear(input_size,self.flattened_output_dims))
+        self.to(device)
+
+    def forward(self,X):
+        batch_X = X.permute(0,2,1)
+        normed_batch = self.norm_layer(batch_X)
+        X = normed_batch.permute(0,2,1)
+
+        batch_size = X.shape[0]
+        flattened_X = torch.flatten(X,1)
+        input_data = flattened_X
+        for layer in self.layers:
+            input_data = layer(input_data)
+        output_matrix = input_data.reshape(2,batch_size,self.timesteps,self.latent_dims)
+        means = output_matrix[0,:,:,:]
+        sds = output_matrix[1,:,:,:]
         sds_tensor = torch.stack([torch.diag_embed(sds[batch_i,:,:].T**2 + self.slack) for batch_i in range(sds.shape[0])])
         corr_sds = sds_tensor.permute(0,2,3,1)
         return means,corr_sds
