@@ -55,11 +55,11 @@ class Test_LL_Fit(unittest.TestCase):
 
     def test_LL_fit_nn_dataset(self):
         #true parameters
-        latent_dims = 1
-        observed_dims = 2
-        times = torch.linspace(0.0,50.0,100)
-        true_R_diag = [9.0]*observed_dims
-        true_taus = [5.0]
+        latent_dims = 2
+        observed_dims = 3
+        times = torch.linspace(0.0,20.0,40)
+        true_R_diag = [5.0]*observed_dims
+        true_taus = [5.0,9.0]
         true_signal_sds = latent_dims*[0.99]
         true_noise_sds = latent_dims*[0.01]
         alpha = 10.0
@@ -69,18 +69,18 @@ class Test_LL_Fit(unittest.TestCase):
         #Z,X = sample_assumed_distribution(true_decoder_model.forward,times,true_R_diag,true_taus,training_samples)
         Z,X = true_model.sample_model(training_samples)
         #initial parameters
-        model_latent_dims = 1
-        model_taus = [50.0]
+        model_latent_dims = 2
+        model_taus = [50.0,50.0]
         signal_sds = model_latent_dims*[0.99]
         noise_sds = model_latent_dims*[0.01]
-        model_R_diag = [20.0,20.0]
+        model_R_diag = [15.0,15.0,15.0]
         #Fitting parameters
-        generative_fit_epochs = 500
+        generative_fit_epochs = 200
         decoding_model = FeedforwardNNDecoder([(20,nn.Sigmoid()),(20,nn.Sigmoid())],model_latent_dims,observed_dims)
         decoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.005)
 
         gpml = GPML_LLF("cpu",model_latent_dims,observed_dims,times,decoding_model,initial_taus=model_taus,signal_sds=signal_sds,noise_sds=noise_sds,initial_R_diag=model_R_diag)
-        gpml.fit_generative_model(X,decoding_optimizer,optimize_taus=True,optimize_R=True,batch_size=15,epochs=generative_fit_epochs,approx_log_likelihood_loss_samples=10000,
+        gpml.fit_generative_model(X,decoding_optimizer,optimize_taus=True,optimize_R=True,batch_size=15,epochs=generative_fit_epochs,approx_log_likelihood_loss_samples=5000,
                                   tau_lr=0.01,R_diag_lr=0.05,print_batch_values=True)
 
 
