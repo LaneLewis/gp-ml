@@ -1,6 +1,6 @@
 import torch
 def sde_kernel_matrices(times:torch.Tensor,taus:torch.Tensor,
-                        signal_sds:torch.Tensor,noise_sds:torch.Tensor)->torch.Tensor:
+                        signal_sds:torch.Tensor,noise_sds:torch.Tensor,device="cpu")->torch.Tensor:
    '''implements simultaneous construction of the sde kernal
       for multiple taus, signal_sds, noise_sds
 
@@ -16,7 +16,7 @@ def sde_kernel_matrices(times:torch.Tensor,taus:torch.Tensor,
    #NOTE: this function passes its test cases
    assert taus.shape == signal_sds.shape == noise_sds.shape
    timesteps = times.shape[0]
-   data_times_square = torch.outer(torch.square(times),torch.ones(timesteps))
+   data_times_square = torch.outer(torch.square(times),torch.ones(timesteps,device=device))
    exp_shared_term = -1*(data_times_square + data_times_square.T - 2 * torch.outer(times,times))
    exp_taus_term = 2*torch.square(taus)
    #has shape [timesteps,timesteps,latent_dims]
@@ -26,10 +26,10 @@ def sde_kernel_matrices(times:torch.Tensor,taus:torch.Tensor,
    return output_matrix
 
 def sde_kernel_matrices_derivatives(times:torch.Tensor,taus:torch.Tensor,
-                        signal_sds:torch.Tensor)->torch.Tensor:
+                        signal_sds:torch.Tensor,device="cpu")->torch.Tensor:
    assert taus.shape == signal_sds.shape
    timesteps = times.shape[0]
-   data_times_square = torch.outer(torch.square(times),torch.ones(timesteps))
+   data_times_square = torch.outer(torch.square(times),torch.ones(timesteps,device=device))
    exp_shared_term = -1*(data_times_square + data_times_square.T - 2 * torch.outer(times,times))
    exp_taus_term = 2*torch.square(taus)
    #has shape [timesteps,timesteps,latent_dims]
@@ -38,6 +38,6 @@ def sde_kernel_matrices_derivatives(times:torch.Tensor,taus:torch.Tensor,
    return chain_term*signal_term
 
 def sde_kernel_matrices_log_taus(times:torch.Tensor,log_taus:torch.Tensor,
-                        signal_sds:torch.Tensor,noise_sds:torch.Tensor):
+                        signal_sds:torch.Tensor,noise_sds:torch.Tensor,device="cpu"):
    taus = torch.exp(log_taus)
-   return sde_kernel_matrices(times,taus,signal_sds,noise_sds)
+   return sde_kernel_matrices(times,taus,signal_sds,noise_sds,device=device)
