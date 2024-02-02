@@ -42,6 +42,7 @@ class GPML_LLF():
         self.latent_dims = latent_dims
         self.observation_dims = observation_dims
         self.timesteps = times.shape[0]
+        self.device = device
         #initializes tau
         if initial_taus == None:
             self.taus = torch.rand((latent_dims),requires_grad=False,device=device)
@@ -147,7 +148,7 @@ class GPML_LLF():
     def sample_model(self,samples):
         with torch.no_grad():
             kernel_matrices = self.kernel_matrices
-            time_steps = torch.zeros(kernel_matrices.shape[0])
+            time_steps = torch.zeros(kernel_matrices.shape[0],device=self.device)
             prior_samples = torch.distributions.MultivariateNormal(time_steps,kernel_matrices.permute(2,0,1)).sample((samples,)).permute(0,2,1)
             decoding_manifold_means = self.decoder_model.forward(prior_samples)
             data_samples = torch.distributions.MultivariateNormal(decoding_manifold_means,self.R).sample((1,)).squeeze()

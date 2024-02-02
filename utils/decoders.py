@@ -56,8 +56,8 @@ class FeedforwardNNDecoderTau(nn.Module):
         return input_data
     
 class ParabolaDecoder():
-    def __init__(self,alpha):
-        self.alpha = torch.tensor(alpha,requires_grad=True)
+    def __init__(self,alpha,device="cpu"):
+        self.alpha = torch.tensor(alpha,requires_grad=True,device=device)
     def forward(self,Z):
         '''takes in a two dimensional latent variable and embeds it into a 3d parabola
         Z - tensor of shape [batch_size,samples, timesteps, dims_in]

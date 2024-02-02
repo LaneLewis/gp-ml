@@ -11,7 +11,7 @@ def sample_prior(timesteps,Ks,samples,batch_size):
     return prior_samples.permute(0,1,3,2)
 
 def approx_data_log_likelihood(timesteps:torch.Tensor,batch_X:torch.Tensor,decoding_function:Callable,
-                     R:torch.Tensor,Ks:torch.tensor,samples:int=10):
+                     R:torch.Tensor,Ks:torch.tensor,samples:int=10,device="cpu"):
     '''
     returns approx_individual_log_likelihood - shape[batch_size]
     '''
@@ -23,15 +23,15 @@ def approx_data_log_likelihood(timesteps:torch.Tensor,batch_X:torch.Tensor,decod
     log_likelihood_sample_losses = other_loss#log_likelihood_loss(batch_X,decoding_manifold_means,R)
     #print(other_loss - log_likelihood_sample_losses)
     #print(f"ll {log_likelihood_sample_losses.shape}")
-    log_inv_samples = torch.log(torch.tensor(1/samples,requires_grad=False))
+    log_inv_samples = torch.log(torch.tensor(1/samples,requires_grad=False,device=device))
     return torch.logsumexp(log_likelihood_sample_losses,dim=1) + log_inv_samples
     #have to convert to likelihood before sum
     #approx_individual_log_likelihood = torch.mean(log_likelihood_sample_losses,dim=1)
     #return approx_individual_log_likelihood
 
 def approx_batch_log_likelihood_loss(timesteps:torch.Tensor,batch_X:torch.Tensor,decoding_function:Callable,
-                     R:torch.Tensor,Ks:torch.tensor,samples:int=10):
-    return torch.sum(approx_data_log_likelihood(timesteps,batch_X,decoding_function,R,Ks,samples))/batch_X.shape[0]
+                     R:torch.Tensor,Ks:torch.tensor,samples:int=10,device="cpu"):
+    return torch.sum(approx_data_log_likelihood(timesteps,batch_X,decoding_function,R,Ks,samples,device=device))/batch_X.shape[0]
 
 def ll_loss(batch_X,decoding_manifold_means,R):
     
