@@ -139,36 +139,16 @@ class GPML_VAE():
                 decoder_optimizer.step()
                 tau_optimizer.step()
                 R_optimizer.step()
-
                 #training loss
-                batch_total_losses.append(batch_loss.detach().numpy())
-                batch_kls.append(batch_kl.detach().numpy())
-                batch_lls.append(batch_ll.detach().numpy())
+                batch_total_losses.append(batch_loss.clone().detach().numpy())
+                batch_kls.append(batch_kl.clone().detach().numpy())
+                batch_lls.append(batch_ll.clone().detach().numpy())
                 batch_size +=1 
-                self.training_loss.append(batch_loss.detach().numpy())
-            print(f"R_diag: {self.R_diag.detach().numpy()}")
-            print(f"Tau: {self.taus.detach().numpy()}")
-            print(f"X Reconstruction: {self.reconstruction_loss(X_train)}")
-            print(f"Z Reconstruction: {torch.linalg.norm(Z - self.predict_Z(X_train)).numpy()}")
+                self.training_loss.append(batch_loss.clone().detach().numpy())
+            print(self.decoder_model.parameters())
+            print(f"R_diag: {self.R_diag.clone().detach().numpy()}")
+            print(f"Tau: {self.taus.clone().detach().numpy()}")
             print(f"total loss:{sum(batch_total_losses)/batch_size}")
             print(f"kl loss: {sum(batch_kls)/batch_size}")
             print(f"ll loss: {sum(batch_lls)/batch_size}")
             gc.collect()
-
-    @torch.no_grad
-    def predict_Z(self,X):
-        #maybe its not predicting the right Z, reshape issue somewhere
-        means,_ = self.encoder_model.forward(X)
-        return means
-    
-    @torch.no_grad
-    def predict_Z_std(self,X):
-        _,stds = self.encoder_model.forward(X)
-        return stds
-    
-    @torch.no_grad
-    def reconstruction_loss(self,X):
-        means, _ = self.encoder_model.forward(X)
-        mean_sample = means.expand(1,means.shape[0],means.shape[1],means.shape[2]).permute(1,0,2,3)
-        decoded_X = self.decoder_model(mean_sample).squeeze(1)
-        return torch.linalg.norm(X - decoded_X)

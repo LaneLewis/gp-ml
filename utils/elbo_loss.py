@@ -32,13 +32,13 @@ def approx_elbo_loss(taus:torch.Tensor,batch_X:torch.Tensor,encoding_function:Ca
     else:
         decoding_manifold_means = decoding_function(encoding_dist_samples)
 
-    log_likelihood_sample_losses = log_likelihood_loss(batch_X,decoding_manifold_means,R)
+    log_likelihood_sample_losses = ll_loss(batch_X,decoding_manifold_means,R)
     approx_individual_log_likelihood= torch.mean(log_likelihood_sample_losses,dim=1)
     #computes the kl divergence term
     kl_divergence_term = kl_divergence(encoding_mus,encoding_Sigmas,Ks)
     #combines them together to get the approximate elbo per item in the batch
     #print(torch.sum(kl_divergence_term))
-    individual_elbos = -1*loss_hyper*approx_individual_log_likelihood + kl_divergence_term
+    individual_elbos = -1*approx_individual_log_likelihood + loss_hyper*kl_divergence_term
     return individual_elbos, kl_divergence_term, -1*approx_individual_log_likelihood 
 
 def sample_encoding_dist(encoding_mus:torch.Tensor,encoding_Sigmas:torch.Tensor,samples:int)->torch.Tensor:
@@ -128,3 +128,13 @@ def convert_to_flat_cov(single_encoding_Sigmas):
                             block diagonal cov matrix for covariance of flattened distribution
     '''
     return torch.block_diag(*map(torch.squeeze, single_encoding_Sigmas.split(1,dim=2)))
+
+def ll_loss(batch_X,decoding_manifold_means,R):
+    
+    #decoding_manifold_means shape [batchsize, samples, timesteps, observed_dims]
+    #print(decoding_manifold_means[0,:,:,:].mean(dim=0))
+    data_dist = torch.distributions.MultivariateNormal(decoding_manifold_means.permute(1,0,2,3),R)
+    #testing
+    data_prob = data_dist.log_prob(batch_X)
+    summed_over_time = torch.sum(data_prob,dim=2)
+    return summed_over_time.permute(1,0)

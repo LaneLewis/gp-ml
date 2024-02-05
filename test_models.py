@@ -8,6 +8,7 @@ from utils.datasets import sample_assumed_distribution,parabola_imbedded_dataset
 from utils.encoders import LSTM_Encoder,LSTM_Encoder_tau,FeedforwardVAEEncoder
 from gpml_vae import GPML_VAE
 from gpml_vae_alt_train import GPML_VAE_Alt
+from gpml_ll_fit import GPML_LLF
 import pickle as pkl
 class TestGPMLTotal(unittest.TestCase):
 
@@ -88,23 +89,38 @@ class TestGPMLTotal(unittest.TestCase):
 
 
     def test_vae_on_parabola(self):
+        device= "cpu"
+        #true parameters
         latent_dims = 2
         observed_dims = 3
-        timesteps = 50
-        Z,X,times,parameters = parabola_imbedded_dataset(samples=200,times=torch.linspace(0,10,timesteps))
-        parabola_alpha = parameters["alpha"]
+        timesteps = 10
+        times = torch.linspace(0.0,10.0,timesteps,device=device)
+        true_R_diag = [5.0]*observed_dims
+        true_taus = [5.0,9.0]
+        true_signal_sds = latent_dims*[0.99]
+        true_noise_sds = latent_dims*[0.01]
+        alpha = 10.0
+        true_decoder_model = ParabolaDecoder(alpha,device=device)#FeedforwardNNDecoder([(3,nn.Sigmoid())],latent_dims,observed_dims)
+        training_samples = 1000
+        true_model = GPML_LLF(device,latent_dims,observed_dims,times,true_decoder_model,true_signal_sds,true_noise_sds,initial_taus=true_taus,initial_R_diag=true_R_diag)
+        #Z,X = sample_assumed_distribution(true_decoder_model.forward,times,true_R_diag,true_taus,training_samples)
+        Z,X = true_model.sample_model(training_samples)
+        #initial parameters
+        model_latent_dims = 2
+        model_taus = [10.0,10.0]
+        signal_sds = model_latent_dims*[0.99]
+        noise_sds = model_latent_dims*[0.01]
+        model_R_diag = [5.0,5.0,5.0]
+        #Fitting parameters
+        generative_fit_epochs = 3000
+        alpha_model = 5.0
 
-        taus = list(parameters["taus"].detach().numpy())
-        signal_sds = list(parameters["signal_sds"].detach().numpy())
-        noise_sds = list(parameters["noise_sds"].detach().numpy())
-        R_diag = list(parameters["R_diag"])
-
-        decoding_model = ParabolaDecoder(latent_dims,parameters["alpha"])
-        encoding_model = FeedforwardVAEEncoder([(100,nn.LeakyReLU()),(50,nn.LeakyReLU()),(50,nn.LeakyReLU())],latent_dims,observed_dims,timesteps)
-
-        encoding_optimizer = optim.Adam(encoding_model.parameters(),lr=0.001)
-        gpml = GPML_VAE("cpu",2,3,times,encoding_model,decoding_model,initial_taus=taus,signal_sds=signal_sds,noise_sds=noise_sds,initial_R_diag=R_diag)
-        gpml.fit(Z,X,encoding_optimizer,optimize_taus=False,optimize_R=False,batch_size=10,epochs=350)
+        decoding_model = ParabolaDecoder(alpha_model,"cpu")
+        encoding_model = FeedforwardVAEEncoder([(50,nn.ReLU()),(50,nn.ReLU())],latent_dims,observed_dims,timesteps)
+        decoding_optimizer = optim.Adam(encoding_model.parameters(),lr=0.01)
+        encoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.05)
+        gpml = GPML_VAE("cpu",2,3,times,encoding_model,decoding_model,initial_taus=model_taus,signal_sds=signal_sds,noise_sds=noise_sds,initial_R_diag=model_R_diag)
+        gpml.fit(Z,X,encoding_optimizer,decoding_optimizer,optimize_taus=True,optimize_R=False,batch_size=15,epochs=generative_fit_epochs,loss_hyperparameter=1.0,approx_elbo_loss_samples=5000)
 
         #saves model for future tests
         with open("./tests/posterior_test_model.pkl","wb") as f:

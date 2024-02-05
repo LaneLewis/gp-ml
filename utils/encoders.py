@@ -120,7 +120,6 @@ class FeedforwardVAEEncoder(nn.Module):
         batch_X = X.permute(0,2,1)
         normed_batch = self.norm_layer(batch_X)
         X = normed_batch.permute(0,2,1)
-
         batch_size = X.shape[0]
         flattened_X = torch.flatten(X,1)
         input_data = flattened_X

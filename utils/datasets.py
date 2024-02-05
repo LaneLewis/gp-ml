@@ -9,7 +9,7 @@ def parabola_imbedded_dataset(samples=100,tau1=0.5,tau2=0.1,signal_sds1=0.99,sig
         signal_sds = torch.tensor([signal_sds1,signal_sds2])
         noise_sds = torch.tensor([noise_sds1,noise_sds2])
         Ks = sde_kernel_matrices(times,taus,signal_sds,noise_sds)
-        decoder = ParabolaDecoder(2,parabola_alpha)
+        decoder = ParabolaDecoder(parabola_alpha)
         R = torch.diag(torch.tensor(R_diag))
         Z,X = sample_assumed_distribution(decoder.forward,times,R,Ks,samples)
         parameters = {"taus":taus,"signal_sds":signal_sds,"noise_sds":noise_sds,"alpha":parabola_alpha,"R_diag":R_diag}
