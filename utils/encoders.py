@@ -131,3 +131,44 @@ class FeedforwardVAEEncoder(nn.Module):
         sds_tensor = torch.stack([torch.diag_embed(sds[batch_i,:,:].T**2 + self.slack) for batch_i in range(sds.shape[0])])
         corr_sds = sds_tensor.permute(0,2,3,1)
         return means,corr_sds
+    
+class FeedforwardVAEEncoderTau(nn.Module):
+    #NOTE this is completely untested!
+    def __init__(self,layers_list,latent_dims,observed_dims,timesteps,device="cpu"):
+        super().__init__()
+        self.slack = 0.0001
+        self.timesteps = timesteps
+        self.latent_dims = latent_dims
+        self.observed_dims = observed_dims
+        self.flattened_input_dims = observed_dims*timesteps + self.latent_dims
+        self.flattened_output_dims = latent_dims*timesteps*2
+        self.layers = nn.ModuleList()
+        self.norm_layer = nn.BatchNorm1d(observed_dims)
+        input_size = self.flattened_input_dims
+        for size,activation in layers_list:
+            linear_layer = nn.Linear(input_size,size)
+            self.layers.append(linear_layer)
+            input_size = size
+            if activation is not None:
+                assert isinstance(activation, Module),"Each tuples should contain a size (int) and a torch.nn.modules.Module."
+                self.layers.append(activation)
+        self.layers.append(nn.Linear(input_size,self.flattened_output_dims))
+        self.to(device)
+
+    def forward(self,X,taus):
+        batch_X = X.permute(0,2,1)
+        normed_batch = self.norm_layer(batch_X)
+        X = normed_batch.permute(0,2,1)
+        batch_size = X.shape[0]
+        flattened_X = torch.flatten(X,1)
+        taus_flat = torch.stack(batch_size*[taus])
+        flattened_X = torch.concat((flattened_X,taus_flat),dim=1)
+        input_data = flattened_X
+        for layer in self.layers:
+            input_data = layer(input_data)
+        output_matrix = input_data.reshape(2,batch_size,self.timesteps,self.latent_dims)
+        means = output_matrix[0,:,:,:]
+        sds = output_matrix[1,:,:,:]
+        sds_tensor = torch.stack([torch.diag_embed(sds[batch_i,:,:].T**2 + self.slack) for batch_i in range(sds.shape[0])])
+        corr_sds = sds_tensor.permute(0,2,3,1)
+        return means,corr_sds

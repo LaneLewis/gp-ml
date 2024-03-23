@@ -5,11 +5,12 @@ from utils.elbo_loss import kl_divergence,sample_encoding_dist,log_likelihood_lo
 from utils.decoders import FeedforwardNNDecoder,FeedforwardNNDecoderTau,ParabolaDecoder
 from torch import nn,optim
 from utils.datasets import sample_assumed_distribution,parabola_imbedded_dataset1,parabola_imbedded_dataset
-from utils.encoders import LSTM_Encoder,LSTM_Encoder_tau,FeedforwardVAEEncoder
+from utils.encoders import LSTM_Encoder,LSTM_Encoder_tau,FeedforwardVAEEncoder,FeedforwardVAEEncoderTau
 from gpml_vae import GPML_VAE
 from gpml_vae_alt_train import GPML_VAE_Alt
 from gpml_ll_fit import GPML_LLF
 import pickle as pkl
+import numpy as np
 class TestGPMLTotal(unittest.TestCase):
 
     def test_adding_tau(self):
@@ -105,22 +106,45 @@ class TestGPMLTotal(unittest.TestCase):
         true_model = GPML_LLF(device,latent_dims,observed_dims,times,true_decoder_model,true_signal_sds,true_noise_sds,initial_taus=true_taus,initial_R_diag=true_R_diag)
         #Z,X = sample_assumed_distribution(true_decoder_model.forward,times,true_R_diag,true_taus,training_samples)
         Z,X = true_model.sample_model(training_samples)
+        X = X.detach()
+        Z = Z.detach()
         #initial parameters
         model_latent_dims = 2
         model_taus = [10.0,10.0]
         signal_sds = model_latent_dims*[0.99]
         noise_sds = model_latent_dims*[0.01]
-        model_R_diag = [5.0,5.0,5.0]
+        model_R_diag = [8.0,8.0,8.0]
         #Fitting parameters
-        generative_fit_epochs = 3000
-        alpha_model = 5.0
+        generative_fit_epochs = 5000
+        alpha_model = 5.0 
 
+        def sigmoid_hyper_scheduler(alpha=0.01,delay=500):
+            def sigmoid_schedule(epoch):
+                epoch = epoch - delay
+                if epoch >= 0:
+                    return 1. / ( 1. + np.exp(-alpha*epoch) )
+                else:
+                    return np.exp(alpha*epoch) / ( 1. + np.exp(alpha*epoch) )
+            return sigmoid_schedule
+        
+        def const_hyper_scheduler(alpha=0.1):
+            def schedule(epoch):
+                return alpha
+            return schedule
+        
+        def steady_ramp_scheduler(full_value_epoch):
+            def steady_ramp(epoch):
+                return min((epoch/full_value_epoch,1))
+            return steady_ramp
         decoding_model = ParabolaDecoder(alpha_model,"cpu")
-        encoding_model = FeedforwardVAEEncoder([(50,nn.ReLU()),(50,nn.ReLU())],latent_dims,observed_dims,timesteps)
-        decoding_optimizer = optim.Adam(encoding_model.parameters(),lr=0.01)
-        encoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.05)
+        #encoding_model = FeedforwardVAEEncoder([(50,nn.ReLU()),(50,nn.ReLU())],latent_dims,observed_dims,timesteps)
+        encoding_model = FeedforwardVAEEncoder([(1000,nn.ReLU()),(1000,nn.ReLU())],latent_dims,observed_dims,timesteps)
+        decoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.05)
+        encoding_optimizer = optim.Adam(encoding_model.parameters(),lr=0.001)
+        hyper_scheduler = const_hyper_scheduler(0.01)
         gpml = GPML_VAE("cpu",2,3,times,encoding_model,decoding_model,initial_taus=model_taus,signal_sds=signal_sds,noise_sds=noise_sds,initial_R_diag=model_R_diag)
-        gpml.fit(Z,X,encoding_optimizer,decoding_optimizer,optimize_taus=True,optimize_R=False,batch_size=15,epochs=generative_fit_epochs,loss_hyperparameter=1.0,approx_elbo_loss_samples=5000)
+        gpml.fit(Z,X,encoding_optimizer,decoding_optimizer,optimize_taus=True,optimize_R=True,batch_size=20,epochs=generative_fit_epochs,loss_hyperparameter=1.0,
+                 approx_elbo_loss_samples=100,hyper_scheduler=hyper_scheduler,tau_lr=0.001,R_diag_lr=0.1)
 
         #saves model for future tests
         with open("./tests/posterior_test_model.pkl","wb") as f:

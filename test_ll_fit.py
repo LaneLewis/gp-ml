@@ -77,18 +77,18 @@ class Test_LL_Fit(unittest.TestCase):
         model_R_diag = [5.0,5.0,5.0]
         #Fitting parameters
         generative_fit_epochs = 1000
-        decoding_model = ParabolaDecoder(8.0,device=device)#FeedforwardNNDecoder([(20,nn.LeakyReLU()),(20,nn.LeakyReLU())],model_latent_dims,observed_dims,device=device)
-        decoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.005)
+        decoding_model = FeedforwardNNDecoder([(20,nn.LeakyReLU())],model_latent_dims,observed_dims,device=device)
+        decoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.0001)
 
         gpml = GPML_LLF("cpu",model_latent_dims,observed_dims,times,decoding_model,initial_taus=model_taus,signal_sds=signal_sds,noise_sds=noise_sds,initial_R_diag=model_R_diag)
-        gpml.fit_generative_model(X,decoding_optimizer,optimize_taus=False,optimize_R=False,batch_size=20,epochs=generative_fit_epochs,approx_log_likelihood_loss_samples=10000,
+        gpml.fit_generative_model(X,decoding_optimizer,optimize_taus=False,optimize_R=False,batch_size=20,epochs=generative_fit_epochs,approx_log_likelihood_loss_samples=1000,
                                   tau_lr=0.005,R_diag_lr=0.05,print_batch_values=True)
     def test_NN_optim(self):
         device= "cpu"
         #true parameters
         latent_dims = 2
         observed_dims = 3
-        times = torch.linspace(0.0,10.0,10,device=device)
+        times = torch.linspace(0.0,10.0,10,device=device,requires_grad=False)
         true_R_diag = [5.0]*observed_dims
         true_taus = [5.0,9.0]
         true_signal_sds = latent_dims*[0.99]
@@ -109,11 +109,11 @@ class Test_LL_Fit(unittest.TestCase):
         generative_fit_epochs = 1000
         decoding_model = ParabolaDecoder(8.0,device=device)#FeedforwardNNDecoder([(20,nn.LeakyReLU()),(20,nn.LeakyReLU())],model_latent_dims,observed_dims,device=device)
         nn_optimizer_layers = [(50,nn.LeakyReLU()),(50,nn.LeakyReLU())]
-        decoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.00001)
+        decoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.0001)
         #exp model params
         gpml = GPML_NN_LLF("cpu",model_latent_dims,observed_dims,times,decoding_model,initial_taus=model_taus,signal_sds=signal_sds,noise_sds=noise_sds,initial_R_diag=model_R_diag,NN_layers=nn_optimizer_layers)
-        gpml.fit_generative_model(X,decoding_optimizer,optimize_taus=True,optimize_R=True,batch_size=20,epochs=generative_fit_epochs,approx_log_likelihood_loss_samples=100,
-                                  tau_lr=0.00001,R_diag_lr=0.00001,print_batch_values=True)
+        gpml.fit_generative_model(X,decoding_optimizer,optimize_taus=True,optimize_R=True,batch_size=20,epochs=generative_fit_epochs,approx_log_likelihood_loss_samples=10000,
+                                  tau_lr=0.001,R_diag_lr=0.001,print_batch_values=True)
 
 if __name__ == "__main__":
     unittest.main()

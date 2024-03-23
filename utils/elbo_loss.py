@@ -117,8 +117,7 @@ def kl_divergence(encoding_mus:torch.Tensor,encoding_Sigmas:torch.Tensor,K:torch
     batch_flat_mus = torch.permute(encoding_mus,(0,2,1)).reshape(batch_size,timesteps*latent_dims)
     batch_flat_covs = torch.vmap(convert_to_flat_cov)(encoding_Sigmas)
     batched_normal_dist = torch.distributions.MultivariateNormal(batch_flat_mus,batch_flat_covs)
-    target_dist = torch.distributions.MultivariateNormal(torch.zeros(timesteps*latent_dims),block_diag_K)
-    #note that there is broacasting since batched_normal_dist and target_dist have different shapes
+    target_dist = torch.distributions.MultivariateNormal(torch.zeros(timesteps*latent_dims,requires_grad=False),block_diag_K)
     return torch.distributions.kl.kl_divergence(batched_normal_dist,target_dist)
 
 def convert_to_flat_cov(single_encoding_Sigmas):
@@ -132,7 +131,6 @@ def convert_to_flat_cov(single_encoding_Sigmas):
 def ll_loss(batch_X,decoding_manifold_means,R):
     
     #decoding_manifold_means shape [batchsize, samples, timesteps, observed_dims]
-    #print(decoding_manifold_means[0,:,:,:].mean(dim=0))
     data_dist = torch.distributions.MultivariateNormal(decoding_manifold_means.permute(1,0,2,3),R)
     #testing
     data_prob = data_dist.log_prob(batch_X)

@@ -141,8 +141,10 @@ class GPML_NN_LLF():
                 self.log_R_diag.requires_grad = False
 
                 nn_ll_predictions = self.nn_optimizer.forward(batch_X,self.decoder_model.parameters(),self.taus,self.R_diag)
-                prediction_loss = torch.sum(torch.square(batch_approx_samples - nn_ll_predictions))
+                prediction_loss = torch.linalg.norm(batch_approx_samples - nn_ll_predictions)**2
                 prediction_loss.backward()
+                #samples are correlated which is bad, may need to change so there is a data log
+                self.nn_adam.step()
                 activate_model(self.decoder_model)
                 self.log_taus.requires_grad = True
                 self.log_R_diag.requires_grad = True
@@ -155,12 +157,10 @@ class GPML_NN_LLF():
                 nn_ll = sum(-1*self.nn_optimizer.forward(batch_X,self.decoder_model.parameters(),self.taus,self.R_diag))
                 nn_ll.backward()
                 activate_model(self.nn_optimizer)
-
                 #steps the grad
                 decoding_optimizer.step()
                 tau_optimizer.step()
                 R_optimizer.step()
-                self.nn_adam.step()
                 #training loss
                 batch_total_losses.append(prediction_loss.detach().numpy())
                 batch_size +=1
@@ -172,6 +172,8 @@ class GPML_NN_LLF():
                 print(f"R_diag: {torch.exp(self.log_R_diag).detach().numpy()}")
                 print(f"Tau: {torch.exp(self.log_taus).detach().numpy()}")
                 print(f"total loss:{sum(batch_total_losses)/batch_size}")
+                print(f"Model LL: {nn_ll.detach().numpy()}")
+
             gc.collect()
         #saves the final kernel and R matrices for use later
         self.kernel_matrices = sde_kernel_matrices(self.times,self.taus,self.signal_sds,self.noise_sds)

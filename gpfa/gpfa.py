@@ -134,3 +134,4 @@ class GPFA():
         C_new,d_new = self.em_update_C_d(y,time_first_moments,time_second_moments)
         R_diag_new = self.em_update_R(y,d_new,C_new,time_first_moments)
         tau_derivatives = self.grad_step_taus(K_tensor,latent_second_moments)
+        

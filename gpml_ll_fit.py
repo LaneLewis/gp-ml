@@ -10,6 +10,7 @@ import gc
 import matplotlib.pyplot as plt
 from torch import nn
 import numpy as np
+from utils.decoders import ParabolaDecoder
 
 class GPML_LLF():
     def __init__(self,device:str,latent_dims:int,observation_dims:int,times:torch.Tensor,decoder_model:object,
@@ -78,7 +79,7 @@ class GPML_LLF():
         self.R = torch.diag(self.R_diag)
 
 
-    def fit_generative_model(self,X_train:torch.Tensor,decoder_optimizer:object=None,epochs=100,
+    def fit_generative_model(self,X_train:torch.Tensor,X_validation:torch.Tensor,decoder_optimizer:object=None,epochs=100,
             tau_lr=0.01,R_diag_lr =0.001, optimize_taus=True,optimize_R=True,batch_size=1,approx_log_likelihood_loss_samples=100,print_batch_values=True):
         '''
         X_train- tensor of shape (iid_samples,time_steps,observation_dims): Gives the training data consisting of 
@@ -94,6 +95,7 @@ class GPML_LLF():
         '''
         self.taus_trajectory = []
         self.R_diag_trajectory = []
+        self.validation_loss = []
         #constructs an optimizer for the parameters tau and R, makes a dummy optimizer if none is passed
         if optimize_taus:
             self.taus.requires_grad = True
@@ -113,10 +115,10 @@ class GPML_LLF():
             decoder_optimizer = DummyOptimizer()
         #begins the main training loop
         batched_X_train = DataLoader(TensorDataset(X_train),batch_size=batch_size)
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs),desc=f"MC Fit",colour="cyan"):
             batch_size = 0
             batch_total_losses = []
-            for (batch_X,) in tqdm(batched_X_train,desc=f"epoch: {epoch}",colour="cyan"):
+            for (batch_X,) in batched_X_train:
                 decoder_optimizer.zero_grad()
                 tau_optimizer.zero_grad()
                 R_optimizer.zero_grad()
@@ -132,7 +134,6 @@ class GPML_LLF():
                 #training loss
                 batch_total_losses.append(batch_loss.detach().numpy())
                 batch_size +=1
-            print(self.decoder_model.parameters())
             self.training_loss.append(batch_loss.detach().numpy())
             self.taus_trajectory.append(self.taus.clone().detach().numpy())
             self.R_diag_trajectory.append(self.R_diag.clone().detach().numpy())
@@ -141,6 +142,10 @@ class GPML_LLF():
                 print(f"Tau: {self.taus.detach().numpy()}")
                 print(f"total loss:{sum(batch_total_losses)/batch_size}")
             gc.collect()
+            with torch.no_grad():
+                validation_loss = -1*approx_batch_log_likelihood_loss(self.timesteps,X_validation,self.decoder_model.forward,self.R,self.kernel_matrices,approx_log_likelihood_loss_samples)
+                self.validation_loss.append(validation_loss.clone().detach().numpy())
+
         #saves the final kernel and R matrices for use later
         self.kernel_matrices = sde_kernel_matrices(self.times,self.taus,self.signal_sds,self.noise_sds)
         self.R = torch.diag(self.R_diag)
