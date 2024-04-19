@@ -104,7 +104,6 @@ class FeedforwardVAEEncoder(nn.Module):
         self.flattened_input_dims = observed_dims*timesteps
         self.flattened_output_dims = latent_dims*timesteps*2
         self.layers = nn.ModuleList()
-        self.norm_layer = nn.BatchNorm1d(observed_dims)
         input_size = self.flattened_input_dims
         for size,activation in layers_list:
             linear_layer = nn.Linear(input_size,size)
@@ -117,9 +116,9 @@ class FeedforwardVAEEncoder(nn.Module):
         self.to(device)
 
     def forward(self,X):
-        batch_X = X.permute(0,2,1)
-        normed_batch = self.norm_layer(batch_X)
-        X = normed_batch.permute(0,2,1)
+        #batch_X = X.permute(0,2,1)
+        #normed_batch = self.norm_layer(batch_X)
+        #X = normed_batch.permute(0,2,1)
         batch_size = X.shape[0]
         flattened_X = torch.flatten(X,1)
         input_data = flattened_X
@@ -127,7 +126,7 @@ class FeedforwardVAEEncoder(nn.Module):
             input_data = layer(input_data)
         output_matrix = input_data.reshape(2,batch_size,self.timesteps,self.latent_dims)
         means = output_matrix[0,:,:,:]
-        sds = output_matrix[1,:,:,:]
+        sds = torch.exp(output_matrix[1,:,:,:])
         sds_tensor = torch.stack([torch.diag_embed(sds[batch_i,:,:].T**2 + self.slack) for batch_i in range(sds.shape[0])])
         corr_sds = sds_tensor.permute(0,2,3,1)
         return means,corr_sds

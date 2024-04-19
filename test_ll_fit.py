@@ -8,7 +8,6 @@ import pickle as pkl
 import numpy as np
 import matplotlib.pyplot as plt
 from utils.latent_prediction import FeedforwardPrediction
-from nn_optim import GPML_NN_LLF
 from torch import nn
 
 class Test_LL_Fit(unittest.TestCase):
@@ -60,7 +59,7 @@ class Test_LL_Fit(unittest.TestCase):
         observed_dims = 3
         times = torch.linspace(0.0,10.0,10,device=device)
         true_R_diag = [5.0]*observed_dims
-        true_taus = [5.0,9.0]
+        true_taus = [4.0,6.0]
         true_signal_sds = latent_dims*[0.98]
         true_noise_sds = latent_dims*[0.02]
         alpha = 10.0
@@ -83,37 +82,5 @@ class Test_LL_Fit(unittest.TestCase):
         gpml = GPML_LLF("cpu",model_latent_dims,observed_dims,times,decoding_model,initial_taus=model_taus,signal_sds=signal_sds,noise_sds=noise_sds,initial_R_diag=model_R_diag)
         gpml.fit_generative_model(X,decoding_optimizer,optimize_taus=False,optimize_R=False,batch_size=20,epochs=generative_fit_epochs,approx_log_likelihood_loss_samples=1000,
                                   tau_lr=0.005,R_diag_lr=0.05,print_batch_values=True)
-    def test_NN_optim(self):
-        device= "cpu"
-        #true parameters
-        latent_dims = 2
-        observed_dims = 3
-        times = torch.linspace(0.0,10.0,10,device=device,requires_grad=False)
-        true_R_diag = [5.0]*observed_dims
-        true_taus = [5.0,9.0]
-        true_signal_sds = latent_dims*[0.99]
-        true_noise_sds = latent_dims*[0.01]
-        alpha = 10.0
-        true_decoder_model = ParabolaDecoder(alpha,device=device)#FeedforwardNNDecoder([(3,nn.Sigmoid())],latent_dims,observed_dims)
-        training_samples = 1000
-        true_model = GPML_LLF(device,latent_dims,observed_dims,times,true_decoder_model,true_signal_sds,true_noise_sds,initial_taus=true_taus,initial_R_diag=true_R_diag)
-        #Z,X = sample_assumed_distribution(true_decoder_model.forward,times,true_R_diag,true_taus,training_samples)
-        Z,X = true_model.sample_model(training_samples)
-        #initial parameters
-        model_latent_dims = 2
-        model_taus = [10.0,10.0]
-        signal_sds = model_latent_dims*[0.99]
-        noise_sds = model_latent_dims*[0.01]
-        model_R_diag = [15.0,15.0,15.0]
-        #Fitting parameters
-        generative_fit_epochs = 1000
-        decoding_model = ParabolaDecoder(8.0,device=device)#FeedforwardNNDecoder([(20,nn.LeakyReLU()),(20,nn.LeakyReLU())],model_latent_dims,observed_dims,device=device)
-        nn_optimizer_layers = [(50,nn.LeakyReLU()),(50,nn.LeakyReLU())]
-        decoding_optimizer = optim.Adam(decoding_model.parameters(),lr=0.0001)
-        #exp model params
-        gpml = GPML_NN_LLF("cpu",model_latent_dims,observed_dims,times,decoding_model,initial_taus=model_taus,signal_sds=signal_sds,noise_sds=noise_sds,initial_R_diag=model_R_diag,NN_layers=nn_optimizer_layers)
-        gpml.fit_generative_model(X,decoding_optimizer,optimize_taus=True,optimize_R=True,batch_size=20,epochs=generative_fit_epochs,approx_log_likelihood_loss_samples=10000,
-                                  tau_lr=0.001,R_diag_lr=0.001,print_batch_values=True)
-
 if __name__ == "__main__":
     unittest.main()

@@ -55,9 +55,10 @@ class FeedforwardNNDecoderTau(nn.Module):
             input_data = layer(input_data)
         return input_data
     
-class ParabolaDecoder():
+class ParabolaDecoder(nn.Module):
     def __init__(self,alpha,device="cpu"):
-        self.alpha = torch.tensor(alpha,requires_grad=True,device=device)
+        super().__init__()
+        self.alpha = torch.nn.Parameter(torch.tensor(alpha,requires_grad=True,device=device))
     def forward(self,Z):
         '''takes in a two dimensional latent variable and embeds it into a 3d parabola
         Z - tensor of shape [batch_size,samples, timesteps, dims_in]
@@ -66,5 +67,19 @@ class ParabolaDecoder():
         extra_dim = torch.linalg.norm(Z,dim=-1)**2
         return torch.cat((Z,self.alpha*extra_dim.unsqueeze(-1)),dim=-1)
         #return torch.cat((self.alpha*Z+10.0,self.alpha*Z+10.0),dim=-1)
-    def parameters(self):
-        return [self.alpha]
+
+class HighDParabolaDecoder(nn.Module):
+    def __init__(self,latent_dims,observation_dims,device="cpu",alpha=10.0):
+        super().__init__()
+        self.alpha = torch.nn.Parameter(torch.tensor(alpha,requires_grad=True,device=device))
+        self.parabola_to_embedding_layer = nn.Linear(latent_dims+1,observation_dims)
+
+    def forward(self,Z):
+        '''takes in a k dimensional latent variable and embeds it into an n d parabola
+        Z - tensor of shape [batch_size,samples, timesteps, dims_in]
+        returns X a tensor of shape [batch_size, samples, timesteps, dims_in+1]
+        '''
+        
+        extra_dim = torch.linalg.norm(Z,dim=-1)**2
+        parabola = torch.cat((Z,self.alpha*extra_dim.unsqueeze(-1)),dim=-1)
+        return self.parabola_to_embedding_layer(parabola)

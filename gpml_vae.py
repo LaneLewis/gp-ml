@@ -73,7 +73,7 @@ class GPML_VAE():
         self.decoder_model = decoder_model
         self.times = times
         #constructs the kernel matricies
-    
+        
     def fit(self,X_train:torch.Tensor,X_validation:torch.Tensor,encoder_optimizer:object=None,decoder_optimizer:object=None,epochs=100,
             tau_lr=0.001,R_diag_lr =0.001, optimize_taus=True,optimize_R=True,batch_size=1,approx_elbo_loss_samples=100,
             loss_hyperparameter=1.0,log_save_name="latest",hyper_scheduler=None,print_epoch=False,save_cycle=100):
@@ -93,7 +93,8 @@ class GPML_VAE():
         param_optimize_list = []
         if optimize_taus:
             self.taus.requires_grad = True
-            tau_optimizer = optim.Adam([self.taus],lr=tau_lr)
+            #make run where momentum is higher
+            tau_optimizer = optim.Adam([self.taus],lr=tau_lr,amsgrad=True,betas=(0.999,0.999))
         else:
             tau_optimizer = DummyOptimizer()
 
@@ -233,7 +234,8 @@ def plot_loss(epochs_total_loss,epochs_ll_loss,epochs_kl_loss,epochs_validation_
 def plot_taus(epochs_taus,filename):
     epochs = range(len(epochs_taus))
     plt.title("GPML VAE: Loss Over Epochs")
-    plt.plot(epochs,epochs_taus)
+    plt.plot(epochs,epochs_taus,label=f"{epochs_taus[-1]}")
     plt.ylabel("Tau")
+    plt.legend()
     plt.savefig(f"./logs/{filename}_Taus.png")
     plt.cla()

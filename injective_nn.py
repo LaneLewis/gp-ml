@@ -71,7 +71,7 @@ class BrenierMapNN(nn.Module):
         return batched_jacobian(self.forward_convex,u)
 
 def batched_jacobian(func,inputs):
-    return torch.squeeze(torch.vmap(jacrev(func))(inputs))
+    return torch.squeeze(torch.vmap(jacrev(func))(inputs),dim=1)
 
 class ConvexFeedforward(nn.Module):
     def __init__(self, first_map_layer_sizes, second_map_layer_sizes,latent_dims,observed_dims):
@@ -81,8 +81,9 @@ class ConvexFeedforward(nn.Module):
         self.first_map_layer_sizes = first_map_layer_sizes
         self.second_map_layer_sizes = second_map_layer_sizes
         self.first_map = BrenierMapNN(first_map_layer_sizes,latent_dims)
-        self.second_map = BrenierMapNN(second_map_layer_sizes,observed_dims)
+        self.second_map = BrenierMapNN(second_map_layer_sizes,observed_dims)        
         self.betas = torch.concat([torch.eye(latent_dims,requires_grad=False),torch.zeros(observed_dims - latent_dims,latent_dims,requires_grad=False)])
+
     def forward(self,latent_input):
         collapsed = math.prod(latent_input.shape[0:-1])
         batch_collapsed_input = latent_input.reshape((collapsed,latent_input.shape[-1]))

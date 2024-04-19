@@ -1,13 +1,13 @@
 import torch
 from typing import Callable
 
-def sample_prior(timesteps,Ks,samples):
+def sample_prior(timesteps,Ks,samples,batch_size):
     '''
     returns prior_samples - shape[batch_size,samples,timesteps,latent_dims]:
                                 samples from the prior
     '''
-    prior_samples = torch.distributions.MultivariateNormal(torch.zeros(timesteps),Ks.permute(2,0,1)).rsample((samples))
-    return prior_samples.permute(0,1,2)
+    prior_samples = torch.distributions.MultivariateNormal(torch.zeros(timesteps),Ks.permute(2,0,1)).rsample((batch_size,samples))
+    return prior_samples.permute(0,1,3,2)
 
 def approx_data_log_likelihood(timesteps:torch.Tensor,batch_X:torch.Tensor,decoding_function:Callable,
                      R:torch.Tensor,Ks:torch.tensor,samples:int=10,device="cpu"):
@@ -21,7 +21,6 @@ def approx_data_log_likelihood(timesteps:torch.Tensor,batch_X:torch.Tensor,decod
     log_likelihood_sample_losses = other_loss
     log_inv_samples = torch.log(torch.tensor(1/samples,requires_grad=False,device=device))
     return torch.logsumexp(log_likelihood_sample_losses,dim=1) + log_inv_samples
-
 
 def approx_batch_log_likelihood_loss(timesteps:torch.Tensor,batch_X:torch.Tensor,decoding_function:Callable,
                      R:torch.Tensor,Ks:torch.tensor,samples:int=10,device="cpu"):
