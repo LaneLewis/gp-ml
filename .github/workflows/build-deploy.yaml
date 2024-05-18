@@ -25,7 +25,6 @@ jobs:
       registry: ghcr.io
       username: lanelewis
       repository: gp-ml
-
     strategy:
       # Even if one docker container build fails we want the others to continue.
       fail-fast: false
@@ -33,6 +32,7 @@ jobs:
       # Dockerfile in root builds to tag latest
       matrix:
         dockerfile: [[Dockerfile, latest]]
+    permissions: write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v2
