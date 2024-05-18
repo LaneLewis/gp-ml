@@ -245,11 +245,11 @@ with torch.no_grad():
         pkl.dump(test_dataset,f)
 
 #two_latent_three_pop_Convex(train_dataset,test_dataset,epochs=10000)
-#two_latent_three_pop_MC(train_dataset,test_dataset,epochs=10000,batch_size=10,samples=10000,run_save_name="second_latest",layers=[(20,nn.LeakyReLU()),(20,nn.LeakyReLU())])
-#graph_MC("second_latest")
+two_latent_three_pop_MC(train_dataset,test_dataset,epochs=1000,batch_size=10,samples=1000,run_save_name="second_latest",layers=[(20,nn.LeakyReLU()),(20,nn.LeakyReLU())])
+graph_MC("second_latest")
     
-two_latent_three_pop_VAE(train_dataset,test_dataset,epochs=50000,samples = 1,
-                         encoding_model_layers=[(100,nn.LeakyReLU()),(100,nn.LeakyReLU())],
-                         decoding_model_layers=[(20,nn.LeakyReLU()),(20,nn.LeakyReLU())],batch_size=10)
+#two_latent_three_pop_VAE(train_dataset,test_dataset,epochs=50000,samples = 1,
+#                         encoding_model_layers=[(100,nn.LeakyReLU()),(100,nn.LeakyReLU())],
+#                         decoding_model_layers=[(20,nn.LeakyReLU()),(20,nn.LeakyReLU())],batch_size=10)
 #graph_VAE("latest_vae")
 #plot_dataset(train_dataset,5,"train_data")

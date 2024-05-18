@@ -70,9 +70,9 @@ class GPML_LLF(nn.Module,GPMLDataStruct):
         else:
             self.log_taus.requires_grad = False
         if train_R_diag:
-            self.log_taus.requires_grad = True
+            self.log_R_diag.requires_grad = True
         else:
-            self.log_taus.requires_grad = False
+            self.log_R_diag.requires_grad = False
         if train_decoder:
             for p in decoder_model.parameters():
                 p.requires_grad = True
@@ -122,7 +122,6 @@ class GPML_LLF(nn.Module,GPMLDataStruct):
                 loss = torch.mean(batch_neg_lls)
                 loss.backward()
                 #steps the grad
-                print(self.log_taus)
                 optimizer.step()
                 #training loss
                 batch_total_losses.append(loss.clone().detach().numpy())

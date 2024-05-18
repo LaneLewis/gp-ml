@@ -45,7 +45,7 @@ class GPMLDataStruct():
         self.hetero_r = hetero_r
         assert self.log_taus.shape == self.signal_sds.shape == self.noise_sds.shape
 
-    def sde_kernel_matrices(self,times:torch.Tensor)->torch.Tensor:
+    def sde_kernel_matrices(self,times:torch.Tensor,no_tau=False)->torch.Tensor:
         '''implements simultaneous construction of the sde kernal
             for multiple taus, signal_sds, noise_sds
 
@@ -57,6 +57,10 @@ class GPMLDataStruct():
             returns kernels - tensor of shape [timesteps,timesteps,latent_dims]:
                                 which gives the kernal matrices for each latent_dim
         '''
+        if no_tau:
+            timesteps = len(times)
+            batched_identity = torch.eye(timesteps).reshape(1,timesteps,timesteps).repeat(self.latent_dims,1,1)
+            return batched_identity.permute(1,2,0)
         #NOTE: this function passes its test cases
         taus = torch.exp(self.log_taus)
         timesteps = times.shape[0]
