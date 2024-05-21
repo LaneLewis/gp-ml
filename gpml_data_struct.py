@@ -3,9 +3,9 @@ import math
 import torch.nn as nn
 class GPMLDataStruct():
     def __init__(self,latent_dims,observation_dims,taus=None,R_diag=None,
-                 signal_sds=None,noise_sds=None,forward_model=None,device="cpu",hetero_r=True):
-        self.latent_dims = latent_dims
+                 signal_sds=None,noise_sds=None,forward_model=None,device="cpu"):
         self.observation_dims = observation_dims
+        self.latent_dims = latent_dims
         if taus == None:
             self.log_taus = torch.rand((latent_dims),requires_grad=False,device=device)
         else:
@@ -14,17 +14,11 @@ class GPMLDataStruct():
             self.log_taus = torch.tensor(log_taus,requires_grad=False,device=device)
         #initializes R
         if R_diag == None:
-            if hetero_r:
-                self.log_R_diag = torch.rand((self.observation_dims),requires_grad=False,device=device)
-            else:
-                self.log_R_diag = torch.rand((1),requires_grad=False,device=device)
+            self.log_R_diag = torch.rand((self.observation_dims),requires_grad=False,device=device)
         else:
-            if hetero_r:
-                assert len(R_diag) == observation_dims
-                log_R_diag = [math.log(r) for r in R_diag]
-                self.log_R_diag = torch.tensor(log_R_diag,requires_grad=False,device=device)
-            else:
-                self.log_R_diag = torch.tensor((math.log(R_diag)),requires_grad=False,device=device)
+            assert len(R_diag) == observation_dims
+            log_R_diag = [math.log(r) for r in R_diag]
+            self.log_R_diag = torch.tensor(log_R_diag,requires_grad=False,device=device)
         #initializes signal sds
         if signal_sds == None:
             self.signal_sds = (1.0 - 0.01)*torch.ones((self.latent_dims),requires_grad=False,device=device)
@@ -42,10 +36,10 @@ class GPMLDataStruct():
         else:
             self.forward_model = forward_model
         self.device=device
-        self.hetero_r = hetero_r
         assert self.log_taus.shape == self.signal_sds.shape == self.noise_sds.shape
+        assert len(self.log_R_diag) == self.observation_dims
 
-    def sde_kernel_matrices(self,times:torch.Tensor,no_tau=False)->torch.Tensor:
+    def sde_kernel_matrices(self,times:torch.Tensor)->torch.Tensor:
         '''implements simultaneous construction of the sde kernal
             for multiple taus, signal_sds, noise_sds
 
@@ -57,10 +51,6 @@ class GPMLDataStruct():
             returns kernels - tensor of shape [timesteps,timesteps,latent_dims]:
                                 which gives the kernal matrices for each latent_dim
         '''
-        if no_tau:
-            timesteps = len(times)
-            batched_identity = torch.eye(timesteps).reshape(1,timesteps,timesteps).repeat(self.latent_dims,1,1)
-            return batched_identity.permute(1,2,0)
         #NOTE: this function passes its test cases
         taus = torch.exp(self.log_taus)
         timesteps = times.shape[0]
@@ -69,19 +59,16 @@ class GPMLDataStruct():
         exp_taus_term = 2*torch.square(taus)
         #has shape [timesteps,timesteps,latent_dims]
         signal_term = (self.signal_sds**2)*torch.exp(exp_shared_term.unsqueeze(2)/exp_taus_term)
-        noise_term = (self.noise_sds**2)*(torch.eye(timesteps).unsqueeze(2))
+        noise_term = (self.noise_sds**2)*(torch.eye(timesteps,device=self.device).unsqueeze(2))
         output_matrix =  signal_term + noise_term
         return output_matrix
-    
+
     def taus(self):
         return torch.exp(self.log_taus)
-    
+
     def R_diag(self):
-        if self.hetero_r:
-            return torch.exp(self.log_R_diag)
-        else:
-            return torch.ones(self.observation_dims)*torch.exp(self.log_R_diag)
-    
+        return torch.exp(self.log_R_diag)
+
     def sample_model(self,samples,times):
         kernel_matrices = self.sde_kernel_matrices(times)
         R = torch.diag(self.R_diag())
